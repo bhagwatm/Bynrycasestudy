@@ -1,0 +1,176 @@
+
+Here’s an outline for developing the Django application with the specified features and a clean, maintainable codebase structure.
+
+1. Project Setup and Structure
+
+
+django-admin startproject gas_utility_service
+cd gas_utility_service
+django-admin startapp accounts
+django-admin startapp service_requests
+django-admin startapp customer_support
+
+
+Recommended Project Structure
+
+gas_utility_service/
+│
+├── gas_utility_service/
+│   ├── settings.py         # Settings split into base, dev, prod
+│   ├── urls.py             # Root URL configuration
+│   ├── wsgi.py             # WSGI for deployment
+│   ├── asgi.py             # ASGI for async support
+│   ├── __init__.py
+│
+├── apps/
+│   ├── accounts/           # For user management
+│   │   ├── models.py
+│   │   ├── views.py
+│   │   ├── urls.py
+│   │   ├── forms.py
+│   │   ├── serializers.py  # For APIs if using DRF
+│   │   ├── admin.py
+│   │   ├── tests.py
+│   │   └── templates/      # Templates specific to accounts
+│   │
+│   ├── service_requests/   # Core service request management
+│   │   ├── models.py
+│   │   ├── views.py
+│   │   ├── urls.py
+│   │   ├── forms.py
+│   │   ├── serializers.py
+│   │   ├── admin.py
+│   │   ├── tests.py
+│   │   └── templates/
+│   │
+│   ├── customer_support/   # Tools for support staff
+│       ├── models.py
+│       ├── views.py
+│       ├── urls.py
+│       ├── forms.py
+│       ├── serializers.py
+│       ├── admin.py
+│       ├── tests.py
+│       └── templates/
+│
+├── templates/              # Global templates
+│
+├── static/                 # Static files (CSS, JS)
+│
+├── media/                  # Uploaded files
+│
+└── manage.py
+
+
+2. Feature Implementation
+
+Models
+
+accounts/models.py: Extend AbstractUser for custom user profiles.
+service_requests/models.py: ServiceRequest model to track requests.
+customer_support/models.py: Ticket model for internal tracking.
+
+
+
+Example Model (ServiceRequest):
+
+from django.db import models
+from django.contrib.auth.models import User
+
+class ServiceRequest(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('in_progress', 'In Progress'),
+        ('resolved', 'Resolved'),
+        ('closed', 'Closed'),
+    ]
+
+    customer = models.ForeignKey(User, on_delete=models.CASCADE, related_name="service_requests")
+    request_type = models.CharField(max_length=50)
+    description = models.TextField()
+    attachment = models.FileField(upload_to='attachments/', null=True, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.request_type} - {self.status}"
+
+
+Views
+    1.Customer Views: Allow customers to create, view, and track requests.
+    2.Support Views: Allow support staff to manage and update requests.
+
+
+Example View (Submit Request):
+
+
+	from django.shortcuts import render, redirect
+	from .models import ServiceRequest
+	from .forms import ServiceRequestForm
+
+	def submit_request(request):
+    	   if request.method == 'POST':
+           form = ServiceRequestForm(request.POST, request.FILES)
+           if form.is_valid():
+            	service_request = form.save(commit=False)
+            	service_request.customer = request.user
+            	service_request.save()
+            	return redirect('request_tracking')
+         else:
+       		 form = ServiceRequestForm()
+   	 return render(request, 'service_requests/submit_request.html', {'form': form})
+
+
+ServiceRequestForm:
+
+	from django import forms
+	from .models import ServiceRequest
+
+	class ServiceRequestForm(forms.ModelForm):
+   	 class Meta:
+       		 model = ServiceRequest
+        	 fields = ['request_type', 'description', 'attachment']
+
+
+URLs
+
+Root URL Configuration (gas_utility_service/urls.py):
+
+
+	from django.contrib import admin
+	from django.urls import path, include
+
+	urlpatterns = [
+    		path('admin/', admin.site.urls),
+    		path('accounts/', include('accounts.urls')),
+    		path('requests/', include('service_requests.urls')),
+   	 	path('support/', include('customer_support.urls')),
+	]
+
+Templates
+
+templates/service_requests/submit_request.html:
+
+	{% extends 'base.html' %}
+	{% block content %}
+	<h2>Submit Service Request</h2>
+	<form method="post" enctype="multipart/form-data">
+    	{% csrf_token %}
+   	 {{ form.as_p }}
+    	<button type="submit">Submit</button>
+	</form>
+	{% endblock %}
+
+3. Bonus: Codebase Enhancements
+	1.Settings Modularization: Split settings.py into base.py, dev.py, and prod.py.
+	2.Environment Variables: Use django-environ to manage secrets and configurations.
+	3.API Support: Add REST APIs using Django REST Framework (DRF) for mobile app integration.
+	4.Task Queue: Use Celery + Redis for handling long-running tasks like notifications.
+	6.Testing: Write unit tests and integration tests for critical workflows.
+
+
+ 4. Next Steps
+     1.Configure user authentication using accounts app.
+     2.Add role-based access control for support staff vs customers.
+     3.Deploy the application using Docker and a cloud provider (e.g., AWS, GCP, or Azure).
